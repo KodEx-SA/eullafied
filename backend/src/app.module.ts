@@ -6,6 +6,8 @@ import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { validationSchema } from './config/env.validation';
 import { getDatabaseConfig } from './config/database.config';
+import { RolesModule } from './modules/roles/roles.module';
+import { DepartmentsModule } from './modules/departments/departments.module';
 
 @Module({
   imports: [
@@ -39,6 +41,10 @@ import { getDatabaseConfig } from './config/database.config';
       }),
       inject: [ConfigService],
     }),
+
+    RolesModule,
+
+    DepartmentsModule,
 
     // Feature modules will go here
   ],
