@@ -8,6 +8,7 @@ import { validationSchema } from './config/env.validation';
 import { getDatabaseConfig } from './config/database.config';
 import { RolesModule } from './modules/roles/roles.module';
 import { DepartmentsModule } from './modules/departments/departments.module';
+import { UsersModule } from './modules/users/users.module';
 
 @Module({
   imports: [
@@ -45,6 +46,7 @@ import { DepartmentsModule } from './modules/departments/departments.module';
     // Feature modules
     RolesModule,
     DepartmentsModule,
+    UsersModule,
   ],
   controllers: [AppController],
   providers: [AppService],
