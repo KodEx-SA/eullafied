@@ -33,7 +33,7 @@ export class DepartmentsService {
     return department;
   }
 
-  async findByName(name: string): Promise<Department> {
+  async findByName(name: string): Promise<Department | null> {
     return await this.departmentRepository.findOne({ where: { name } });
   }
 
