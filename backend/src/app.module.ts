@@ -42,11 +42,9 @@ import { DepartmentsModule } from './modules/departments/departments.module';
       inject: [ConfigService],
     }),
 
+    // Feature modules
     RolesModule,
-
     DepartmentsModule,
-
-    // Feature modules will go here
   ],
   controllers: [AppController],
   providers: [AppService],
