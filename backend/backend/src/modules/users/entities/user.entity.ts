@@ -43,5 +43,5 @@ export class User extends BaseEntity {
 
   @Column({ nullable: true })
   @Exclude()
-  refreshToken: string | null;
+  refreshToken: string;
 }
