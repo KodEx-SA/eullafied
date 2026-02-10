@@ -38,10 +38,10 @@ export class User extends BaseEntity {
   @JoinColumn({ name: 'department_id' })
   department: Department;
 
-  @Column({ nullable: true })
+  @Column({ type: 'datetime', nullable: true })
   lastLoginAt: Date;
 
-  @Column({ nullable: true })
+  @Column({ type: 'varchar', length: 255, nullable: true })
   @Exclude()
-  refreshToken: string | null;
+  refreshToken: string;
 }

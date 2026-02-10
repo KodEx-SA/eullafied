@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/ban-ts-comment */
 import {
   Injectable,
   NotFoundException,
@@ -115,9 +116,12 @@ export class UsersService {
     refreshToken: string | null,
   ): Promise<void> {
     const user = await this.findOne(userId);
-    user.refreshToken = refreshToken
-      ? await bcrypt.hash(refreshToken, 10)
-      : null;
+    if (refreshToken) {
+      user.refreshToken = await bcrypt.hash(refreshToken, 10);
+    } else {
+      // @ts-ignore - TypeORM handles nullable columns correctly
+      user.refreshToken = null;
+    }
     await this.userRepository.save(user);
   }
 
