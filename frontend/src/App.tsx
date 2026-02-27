@@ -1,4 +1,3 @@
-import React from 'react';
-import { RouterProvider } from './router/Router';
+import AppRoutes from './router/AppRoutes';
 
-export const App = () => <RouterProvider />;
+export const App = () => <AppRoutes />;
