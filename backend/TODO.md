@@ -1,0 +1,4 @@
+- [x] Update imports in update-user.dto.ts to include IsEmail, MaxLength, IsUUID, IsEnum, and UserStatus
+- [x] Change UpdateUserDto from type to class
+- [x] Define class properties mirroring CreateUserDto with @IsOptional() on all fields
+- [x] Retain specific validations for password field
