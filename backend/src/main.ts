@@ -29,6 +29,7 @@ async function bootstrap() {
     new ValidationPipe({
       whitelist: true,
       forbidNonWhitelisted: true,
+<<<<<<< HEAD
       // transform: true,
       // transformOptions: {
       //   enableImplicitConversion: true,
@@ -44,6 +45,15 @@ async function bootstrap() {
   
   app.useGlobalGuards(JwtAuthGuard, RolesGuard);
 
+=======
+      transform: true,
+      transformOptions: {
+        enableImplicitConversion: true,
+      },
+    }),
+  );
+
+>>>>>>> f3aaae32b41bdd6aa5febb38052d41b3dfc87c03
   const port = configService.get<number>('PORT') || 3000;
   await app.listen(port);
 

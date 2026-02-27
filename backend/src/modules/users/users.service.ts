@@ -3,7 +3,10 @@ import {
   Injectable,
   NotFoundException,
   ConflictException,
+<<<<<<< HEAD
   BadRequestException,
+=======
+>>>>>>> f3aaae32b41bdd6aa5febb38052d41b3dfc87c03
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
@@ -31,6 +34,7 @@ export class UsersService {
 
     // Verify role exists
     const role = await this.rolesService.findOne(createUserDto.roleId);
+<<<<<<< HEAD
     if (!role) {
       throw new NotFoundException(`Role with ID ${createUserDto.roleId} not found`);
     }
@@ -42,6 +46,13 @@ export class UsersService {
         `Department with ID ${createUserDto.departmentId} not found`,
       );
     }
+=======
+
+    // Verify department exists
+    const department = await this.departmentsService.findOne(
+      createUserDto.departmentId,
+    );
+>>>>>>> f3aaae32b41bdd6aa5febb38052d41b3dfc87c03
 
     // Hash password
     const hashedPassword = await bcrypt.hash(createUserDto.password, 10);
@@ -60,14 +71,20 @@ export class UsersService {
   async findAll(): Promise<User[]> {
     return await this.userRepository.find({
       order: { createdAt: 'DESC' },
+<<<<<<< HEAD
       relations: ['role', 'department'], // eager load related entities
+=======
+>>>>>>> f3aaae32b41bdd6aa5febb38052d41b3dfc87c03
     });
   }
 
   async findOne(id: string): Promise<User> {
     const user = await this.userRepository.findOne({
       where: { id },
+<<<<<<< HEAD
       relations: ['role', 'department'],
+=======
+>>>>>>> f3aaae32b41bdd6aa5febb38052d41b3dfc87c03
     });
     if (!user) {
       throw new NotFoundException(`User with ID ${id} not found`);
@@ -78,7 +95,10 @@ export class UsersService {
   async findByEmail(email: string): Promise<User | null> {
     return await this.userRepository.findOne({
       where: { email },
+<<<<<<< HEAD
       relations: ['role', 'department'],
+=======
+>>>>>>> f3aaae32b41bdd6aa5febb38052d41b3dfc87c03
     });
   }
 
@@ -101,20 +121,29 @@ export class UsersService {
     // If updating role, verify it exists
     if (updateUserDto.roleId) {
       const role = await this.rolesService.findOne(updateUserDto.roleId);
+<<<<<<< HEAD
       if (!role) {
         throw new NotFoundException(`Role with ID ${updateUserDto.roleId} not found`);
       }
+=======
+>>>>>>> f3aaae32b41bdd6aa5febb38052d41b3dfc87c03
       user.role = role;
     }
 
     // If updating department, verify it exists
     if (updateUserDto.departmentId) {
+<<<<<<< HEAD
       const department = await this.departmentsService.findOne(updateUserDto.departmentId);
       if (!department) {
         throw new NotFoundException(
           `Department with ID ${updateUserDto.departmentId} not found`,
         );
       }
+=======
+      const department = await this.departmentsService.findOne(
+        updateUserDto.departmentId,
+      );
+>>>>>>> f3aaae32b41bdd6aa5febb38052d41b3dfc87c03
       user.department = department;
     }
 
@@ -127,11 +156,22 @@ export class UsersService {
     await this.userRepository.remove(user);
   }
 
+<<<<<<< HEAD
   async updateRefreshToken(userId: string, refreshToken: string | null): Promise<void> {
+=======
+  async updateRefreshToken(
+    userId: string,
+    refreshToken: string | null,
+  ): Promise<void> {
+>>>>>>> f3aaae32b41bdd6aa5febb38052d41b3dfc87c03
     const user = await this.findOne(userId);
     if (refreshToken) {
       user.refreshToken = await bcrypt.hash(refreshToken, 10);
     } else {
+<<<<<<< HEAD
+=======
+      // @ts-ignore - TypeORM handles nullable columns correctly
+>>>>>>> f3aaae32b41bdd6aa5febb38052d41b3dfc87c03
       user.refreshToken = null;
     }
     await this.userRepository.save(user);
@@ -142,4 +182,8 @@ export class UsersService {
     user.lastLoginAt = new Date();
     await this.userRepository.save(user);
   }
+<<<<<<< HEAD
 }
+=======
+}
+>>>>>>> f3aaae32b41bdd6aa5febb38052d41b3dfc87c03
