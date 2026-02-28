@@ -1,3 +1,16 @@
-import { CreateRoleDto } from './create-role.dto';
+import { IsString, IsOptional, IsBoolean, MaxLength } from 'class-validator';
 
-export type UpdateRoleDto = Partial<CreateRoleDto>;
+export class UpdateRoleDto {
+  @IsString()
+  @MaxLength(50)
+  @IsOptional()
+  name?: string;
+
+  @IsString()
+  @IsOptional()
+  description?: string;
+
+  @IsBoolean()
+  @IsOptional()
+  isActive?: boolean;
+}

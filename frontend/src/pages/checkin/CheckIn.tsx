@@ -120,7 +120,7 @@ export const CheckIn = () => {
               </div>
               <div>
                 <p className="text-gray-900 font-semibold">{user?.firstName} {user?.lastName}</p>
-                <p className="text-gray-500 text-xs">{user?.role}</p>
+                <p className="text-gray-500 text-xs">{user?.role?.name}</p>
               </div>
             </div>
 

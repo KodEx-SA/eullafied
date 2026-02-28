@@ -1,20 +1,32 @@
-import { IsOptional, IsString, IsEnum } from 'class-validator';
-import { TicketPriority, TicketStatus } from '../entities/ticket.entity';
+import { IsString, IsEnum, IsUUID, IsOptional } from 'class-validator';
+import { TicketPriority, TicketStatus } from '../../../shared/enums';
 
 export class UpdateTicketDto {
-  @IsOptional()
   @IsString()
+  @IsOptional()
   title?: string;
 
-  @IsOptional()
   @IsString()
+  @IsOptional()
   description?: string;
 
+  @IsEnum(TicketStatus)
   @IsOptional()
+  status?: TicketStatus;
+
   @IsEnum(TicketPriority)
+  @IsOptional()
   priority?: TicketPriority;
 
+  @IsString()
   @IsOptional()
-  @IsEnum(TicketStatus)
-  status?: TicketStatus;
+  category?: string;
+
+  @IsUUID()
+  @IsOptional()
+  assignedToId?: string;
+
+  @IsString()
+  @IsOptional()
+  resolutionNotes?: string;
 }

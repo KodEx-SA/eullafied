@@ -1,24 +1,18 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../auth/AuthContext';
+import { ticketsService } from '../../services/tickets.service';
+import type { Ticket } from '../../types';
+import { STATUS_LABEL, PRIORITY_LABEL, ticketNumber } from '../../types';
 
 interface DashboardStats {
-  totalTickets: number;
-  openTickets: number;
-  inProgressTickets: number;
-  resolvedTickets: number;
+  total: number;
+  open: number;
+  inProgress: number;
+  resolved: number;
 }
 
-interface Activity {
-  id: string;
-  type: 'created' | 'resolved' | 'user' | 'assigned';
-  message: string;
-  time: string;
-}
-
-const StatCard = ({
-  label, value, icon, color, bg,
-}: {
+const StatCard = ({ label, value, icon, color, bg }: {
   label: string; value: number; icon: React.ReactNode; color: string; bg: string;
 }) => (
   <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-100 flex items-center gap-5">
@@ -32,36 +26,43 @@ const StatCard = ({
   </div>
 );
 
+const priorityColor: Record<string, string> = {
+  urgent: 'bg-red-100 text-red-700',
+  high: 'bg-orange-100 text-orange-700',
+  medium: 'bg-yellow-100 text-yellow-700',
+  low: 'bg-blue-100 text-blue-700',
+};
+
 export const Dashboard = () => {
   const { user } = useAuth();
   const navigate = useNavigate();
-  const [stats, setStats] = useState<DashboardStats>({
-    totalTickets: 0, openTickets: 0, inProgressTickets: 0, resolvedTickets: 0,
-  });
+  const [tickets, setTickets] = useState<Ticket[]>([]);
+  const [stats, setStats] = useState<DashboardStats>({ total: 0, open: 0, inProgress: 0, resolved: 0 });
   const [loading, setLoading] = useState(true);
-
-  const activities: Activity[] = [
-    { id: '1', type: 'created', message: 'New ticket created — Cannot access email system', time: '5 min ago' },
-    { id: '2', type: 'resolved', message: 'Ticket #TN-123 has been resolved', time: '1 hour ago' },
-    { id: '3', type: 'user', message: 'New user registered — Jane Smith', time: '3 hours ago' },
-    { id: '4', type: 'assigned', message: 'Ticket #TN-119 assigned to IT Support', time: '5 hours ago' },
-    { id: '5', type: 'created', message: 'New ticket created — Printer not working', time: 'Yesterday' },
-  ];
-
-  const activityIcons: Record<Activity['type'], { icon: React.ReactNode; bg: string; text: string }> = {
-    created: { icon: '🎫', bg: 'bg-blue-50', text: 'text-blue-600' },
-    resolved: { icon: '✅', bg: 'bg-green-50', text: 'text-green-600' },
-    user: { icon: '👤', bg: 'bg-purple-50', text: 'text-purple-600' },
-    assigned: { icon: '🔧', bg: 'bg-orange-50', text: 'text-orange-600' },
-  };
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    // TODO: Replace with real API call
-    setTimeout(() => {
-      setStats({ totalTickets: 156, openTickets: 23, inProgressTickets: 45, resolvedTickets: 88 });
-      setLoading(false);
-    }, 500);
+    ticketsService.getAll()
+      .then((data) => {
+        setTickets(data);
+        setStats({
+          total: data.length,
+          open: data.filter(t => t.status === 'open').length,
+          inProgress: data.filter(t => t.status === 'in_progress').length,
+          resolved: data.filter(t => t.status === 'resolved' || t.status === 'closed').length,
+        });
+      })
+      .catch(() => setError('Could not load ticket data.'))
+      .finally(() => setLoading(false));
   }, []);
+
+  const resolvedPct = stats.total > 0
+    ? Math.round((stats.resolved / stats.total) * 100)
+    : 0;
+
+  const recentTickets = [...tickets]
+    .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+    .slice(0, 5);
 
   if (loading) {
     return (
@@ -71,34 +72,34 @@ export const Dashboard = () => {
     );
   }
 
-  const resolvedPct = stats.totalTickets > 0
-    ? Math.round((stats.resolvedTickets / stats.totalTickets) * 100)
-    : 0;
-
   return (
     <div className="space-y-6">
       {/* Header */}
       <div>
         <h1 className="text-2xl font-bold text-gray-900">
-          Good morning, {user?.firstName ?? user?.email?.split('@')[0] ?? 'there'} 👋
+          Good morning, {user?.firstName ?? 'there'} 👋
         </h1>
         <p className="text-gray-500 mt-1">Here's what's happening with your tickets today.</p>
       </div>
 
+      {error && (
+        <div className="bg-red-50 border border-red-200 text-red-700 text-sm rounded-xl px-4 py-3">{error}</div>
+      )}
+
       {/* Stats */}
       <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-5">
-        <StatCard label="Total Tickets" value={stats.totalTickets} icon="📊" color="text-blue-600" bg="bg-blue-50" />
-        <StatCard label="Open" value={stats.openTickets} icon="🎫" color="text-red-600" bg="bg-red-50" />
-        <StatCard label="In Progress" value={stats.inProgressTickets} icon="⚙️" color="text-yellow-600" bg="bg-yellow-50" />
-        <StatCard label="Resolved" value={stats.resolvedTickets} icon="✅" color="text-green-600" bg="bg-green-50" />
+        <StatCard label="Total Tickets"  value={stats.total}      icon="📊" color="text-blue-600"   bg="bg-blue-50" />
+        <StatCard label="Open"           value={stats.open}       icon="🎫" color="text-red-600"    bg="bg-red-50" />
+        <StatCard label="In Progress"    value={stats.inProgress} icon="⚙️" color="text-yellow-600" bg="bg-yellow-50" />
+        <StatCard label="Resolved"       value={stats.resolved}   icon="✅" color="text-green-600"  bg="bg-green-50" />
       </div>
 
       {/* Main Grid */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Recent Activity */}
+        {/* Recent Tickets */}
         <div className="lg:col-span-2 bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
           <div className="flex items-center justify-between mb-5">
-            <h2 className="text-lg font-semibold text-gray-900">Recent Activity</h2>
+            <h2 className="text-lg font-semibold text-gray-900">Recent Tickets</h2>
             <button
               onClick={() => navigate('/tickets')}
               className="text-sm text-blue-600 hover:text-blue-700 font-medium"
@@ -106,22 +107,50 @@ export const Dashboard = () => {
               View all →
             </button>
           </div>
-          <div className="space-y-4">
-            {activities.map((a) => {
-              const { icon, bg, text } = activityIcons[a.type];
-              return (
-                <div key={a.id} className="flex items-start gap-4">
-                  <div className={`w-9 h-9 rounded-xl ${bg} flex items-center justify-center flex-shrink-0 text-sm`}>
-                    {icon}
-                  </div>
+
+          {recentTickets.length === 0 ? (
+            <div className="flex flex-col items-center justify-center py-12 text-gray-400">
+              <span className="text-4xl mb-3">🎫</span>
+              <p className="text-sm">No tickets yet — create the first one!</p>
+              <button
+                onClick={() => navigate('/tickets/new')}
+                className="mt-4 px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-xl hover:bg-blue-700 transition-colors"
+              >
+                Create Ticket
+              </button>
+            </div>
+          ) : (
+            <div className="space-y-3">
+              {recentTickets.map((t) => (
+                <div
+                  key={t.id}
+                  onClick={() => navigate(`/tickets/${t.id}`)}
+                  className="flex items-center gap-4 p-3 rounded-xl hover:bg-gray-50 cursor-pointer transition-colors"
+                >
                   <div className="flex-1 min-w-0">
-                    <p className="text-sm text-gray-800 font-medium leading-snug">{a.message}</p>
-                    <p className="text-xs text-gray-400 mt-0.5">{a.time}</p>
+                    <div className="flex items-center gap-2 mb-0.5">
+                      <span className="text-xs font-semibold text-blue-600">{ticketNumber(t.id)}</span>
+                      <span className={`text-xs px-2 py-0.5 rounded-md font-medium ${priorityColor[t.priority]}`}>
+                        {PRIORITY_LABEL[t.priority]}
+                      </span>
+                    </div>
+                    <p className="text-sm font-medium text-gray-800 truncate">{t.title}</p>
+                    <p className="text-xs text-gray-400 mt-0.5">
+                      {t.createdBy.firstName} {t.createdBy.lastName} · {t.department.name}
+                    </p>
                   </div>
+                  <span className={`text-xs px-2.5 py-1 rounded-lg font-semibold flex-shrink-0 ${
+                    t.status === 'open'        ? 'bg-red-50 text-red-700' :
+                    t.status === 'in_progress' ? 'bg-yellow-50 text-yellow-700' :
+                    t.status === 'resolved'    ? 'bg-green-50 text-green-700' :
+                    'bg-gray-100 text-gray-600'
+                  }`}>
+                    {STATUS_LABEL[t.status]}
+                  </span>
                 </div>
-              );
-            })}
-          </div>
+              ))}
+            </div>
+          )}
         </div>
 
         {/* Right Column */}
@@ -147,11 +176,11 @@ export const Dashboard = () => {
             </div>
             <div className="mt-4 grid grid-cols-2 gap-3">
               <div className="bg-green-50 rounded-xl p-3 text-center">
-                <p className="text-xl font-bold text-green-700">{stats.resolvedTickets}</p>
+                <p className="text-xl font-bold text-green-700">{stats.resolved}</p>
                 <p className="text-xs text-green-600">Resolved</p>
               </div>
               <div className="bg-red-50 rounded-xl p-3 text-center">
-                <p className="text-xl font-bold text-red-700">{stats.openTickets}</p>
+                <p className="text-xl font-bold text-red-700">{stats.open}</p>
                 <p className="text-xs text-red-600">Open</p>
               </div>
             </div>
@@ -162,9 +191,9 @@ export const Dashboard = () => {
             <h2 className="text-lg font-semibold text-gray-900 mb-4">Quick Actions</h2>
             <div className="space-y-2">
               {[
-                { label: 'Create New Ticket', path: '/tickets/new', icon: '➕', primary: true },
-                { label: 'View All Tickets', path: '/tickets', icon: '📋', primary: false },
-                { label: 'Manage Departments', path: '/departments', icon: '🏢', primary: false },
+                { label: 'Create New Ticket',    path: '/tickets/new',  icon: '➕', primary: true },
+                { label: 'View All Tickets',     path: '/tickets',      icon: '📋', primary: false },
+                { label: 'Manage Departments',   path: '/departments',  icon: '🏢', primary: false },
               ].map((action) => (
                 <button
                   key={action.path}

@@ -1,21 +1,23 @@
-import { NestFactory } from '@nestjs/core';
+import { NestFactory, Reflector } from '@nestjs/core';
 import { AppModule } from './app.module';
-import { ValidationPipe } from '@nestjs/common';
+import { ValidationPipe, ClassSerializerInterceptor } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import helmet from 'helmet';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
-
-  // Get config service
   const configService = app.get(ConfigService);
 
-  // Security
+  // Security headers
   app.use(helmet());
 
-  // CORS
+  // CORS — allow frontend dev server + production URL
   app.enableCors({
-    origin: ['http://localhost:5173', 'http://localhost:3001'],
+    origin: [
+      'http://localhost:5173',
+      'http://localhost:3001',
+      'https://eullafied.vercel.app', // update to your prod URL later
+    ],
     methods: 'GET,HEAD,PUT,PATCH,POST,DELETE,OPTIONS',
     credentials: true,
   });
@@ -24,39 +26,23 @@ async function bootstrap() {
   const apiPrefix = configService.get<string>('API_PREFIX') || 'api';
   app.setGlobalPrefix(apiPrefix);
 
-  // Global validation pipe
+  // Validation
   app.useGlobalPipes(
     new ValidationPipe({
       whitelist: true,
       forbidNonWhitelisted: true,
-<<<<<<< HEAD
-      // transform: true,
-      // transformOptions: {
-      //   enableImplicitConversion: true,
-      // },
-    }),
-  );
-
-  app.useGlobalInterceptors(
-    new ClassSerializerInterceptor(
-      app.get(Reflector)
-    )
-  );
-  
-  app.useGlobalGuards(JwtAuthGuard, RolesGuard);
-
-=======
       transform: true,
-      transformOptions: {
-        enableImplicitConversion: true,
-      },
+      transformOptions: { enableImplicitConversion: true },
     }),
   );
 
->>>>>>> f3aaae32b41bdd6aa5febb38052d41b3dfc87c03
+  // Strip password/refreshToken from all responses automatically
+  app.useGlobalInterceptors(new ClassSerializerInterceptor(app.get(Reflector)));
+
   const port = configService.get<number>('PORT') || 3000;
   await app.listen(port);
 
-  console.log(`🚀 Application is running on: http://localhost:${port}/${apiPrefix}`);
+  console.log(`🚀 Server running on: http://localhost:${port}/${apiPrefix}`);
+  console.log(`📋 Auth endpoints: http://localhost:${port}/${apiPrefix}/auth`);
 }
 bootstrap();

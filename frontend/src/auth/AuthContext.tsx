@@ -1,37 +1,14 @@
 import { createContext, useContext, useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-
-interface User {
-  id: string;
-  email: string;
-  firstName: string;
-  lastName: string;
-  role: string;
-}
+import { authService } from '../services/auth.service';
+import type { User } from '../types';
 
 interface AuthContextType {
   user: User | null;
   loading: boolean;
   login: (email: string, password: string) => Promise<void>;
-  logout: () => void;
+  logout: () => Promise<void>;
 }
-
-// ─── Mock credentials ───────────────────────────────────────────────────────
-const MOCK_USERS: Record<string, { password: string; user: User }> = {
-  'admin@eullafied.com': {
-    password: 'Admin@123',
-    user: { id: '1', email: 'admin@eullafied.com', firstName: 'Admin', lastName: 'User', role: 'ADMIN' },
-  },
-  'john.doe@eullafied.com': {
-    password: 'Staff@123',
-    user: { id: '2', email: 'john.doe@eullafied.com', firstName: 'John', lastName: 'Doe', role: 'STAFF' },
-  },
-  'jane.smith@eullafied.com': {
-    password: 'Manager@123',
-    user: { id: '3', email: 'jane.smith@eullafied.com', firstName: 'Jane', lastName: 'Smith', role: 'MANAGER' },
-  },
-};
-// ────────────────────────────────────────────────────────────────────────────
 
 const AuthContext = createContext<AuthContextType | null>(null);
 
@@ -40,35 +17,37 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const [loading, setLoading] = useState(true);
   const navigate = useNavigate();
 
-  // Restore session from localStorage on page refresh
+  // ── Restore session on page refresh ──────────────────────────────────────
   useEffect(() => {
-    const stored = localStorage.getItem('mock_user');
-    if (stored) {
+    const restore = async () => {
+      const token = localStorage.getItem('access_token');
+      if (!token) { setLoading(false); return; }
       try {
-        setUser(JSON.parse(stored));
+        const me = await authService.getMe();
+        setUser(me);
       } catch {
-        localStorage.removeItem('mock_user');
+        localStorage.clear();
+      } finally {
+        setLoading(false);
       }
-    }
-    setLoading(false);
+    };
+    restore();
   }, []);
 
   const login = async (email: string, password: string) => {
-    // Simulate network delay
-    await new Promise(r => setTimeout(r, 600));
+    const data = await authService.login(email, password);
 
-    const match = MOCK_USERS[email.toLowerCase()];
-    if (!match || match.password !== password) {
-      throw { response: { data: { message: 'Invalid email or password' } } };
-    }
+    localStorage.setItem('access_token', data.accessToken);
+    localStorage.setItem('refresh_token', data.refreshToken);
+    localStorage.setItem('user_id', data.user.id);
 
-    localStorage.setItem('mock_user', JSON.stringify(match.user));
-    setUser(match.user);
+    setUser(data.user);
     navigate('/dashboard');
   };
 
-  const logout = () => {
-    localStorage.removeItem('mock_user');
+  const logout = async () => {
+    await authService.logout();
+    localStorage.clear();
     setUser(null);
     navigate('/login');
   };

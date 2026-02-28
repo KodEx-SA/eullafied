@@ -21,11 +21,7 @@ export class User extends BaseEntity {
   password: string;
 
   @Column({ nullable: true, length: 20 })
-<<<<<<< HEAD
   phoneNumber?: string;
-=======
-  phoneNumber: string;
->>>>>>> f3aaae32b41bdd6aa5febb38052d41b3dfc87c03
 
   @Column({
     type: 'enum',
@@ -38,23 +34,14 @@ export class User extends BaseEntity {
   @JoinColumn({ name: 'role_id' })
   role: Role;
 
-  @ManyToOne(() => Department, { eager: true })
+  @ManyToOne(() => Department, { eager: true, nullable: true })
   @JoinColumn({ name: 'department_id' })
-  department: Department;
+  department?: Department;
 
-  @Column({ type: 'datetime', nullable: true })
-<<<<<<< HEAD
+  @Column({ type: 'timestamptz', nullable: true })
   lastLoginAt?: Date;
 
   @Column({ type: 'varchar', length: 255, nullable: true })
   @Exclude()
   refreshToken?: string;
 }
-=======
-  lastLoginAt: Date;
-
-  @Column({ type: 'varchar', length: 255, nullable: true })
-  @Exclude()
-  refreshToken: string;
-}
->>>>>>> f3aaae32b41bdd6aa5febb38052d41b3dfc87c03

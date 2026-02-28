@@ -4,15 +4,12 @@ import { ConfigService } from '@nestjs/config';
 export const getDatabaseConfig = (
   configService: ConfigService,
 ): TypeOrmModuleOptions => ({
-  type: 'mysql',
-  host: configService.get<string>('DB_HOST'),
-  port: configService.get<number>('DB_PORT'),
-  username: configService.get<string>('DB_USERNAME'),
-  password: configService.get<string>('DB_PASSWORD'),
-  database: configService.get<string>('DB_NAME'),
+  type: 'postgres',
+  url: configService.get<string>('DATABASE_URL'),
   entities: [__dirname + '/../**/*.entity{.ts,.js}'],
-  migrations: [__dirname + '/../database/migrations/*{.ts,.js}'],
-  synchronize: configService.get<string>('NODE_ENV') === 'development',
+  synchronize: true, // auto-creates tables - safe for development
   logging: configService.get<string>('NODE_ENV') === 'development',
-  migrationsRun: false,
+  ssl: {
+    rejectUnauthorized: false, // required for Supabase
+  },
 });

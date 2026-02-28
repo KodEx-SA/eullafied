@@ -1,91 +1,29 @@
 import {
-  Controller,
-  Get,
-  Post,
-  Body,
-  Patch,
-  Param,
-  Delete,
-  HttpCode,
-  HttpStatus,
-<<<<<<< HEAD
-  UseGuards,
+  Controller, Get, Post, Body, Patch, Param, Delete,
+  HttpCode, HttpStatus, UseGuards,
 } from '@nestjs/common';
 import { DepartmentsService } from './departments.service';
-import * as dto from './dto';
+import { CreateDepartmentDto } from './dto/create-department.dto';
+import { UpdateDepartmentDto } from './dto/update-department.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import { Roles } from '../auth/decorators/roles.decorator';
+import { Public } from '../auth/decorators/public.decorator';
 
 @Controller('departments')
 @UseGuards(JwtAuthGuard)
 export class DepartmentsController {
   constructor(private readonly departmentsService: DepartmentsService) {}
 
-  // Admin only
   @Post()
-  @HttpCode(HttpStatus.CREATED)
   @UseGuards(RolesGuard)
-  @Roles('admin')
-  create(@Body() createDepartmentDto: dto.CreateDepartmentDto): Promise<any> {
+  @Roles('ADMIN', 'MANAGER')
+  @HttpCode(HttpStatus.CREATED)
+  create(@Body() createDepartmentDto: CreateDepartmentDto) {
     return this.departmentsService.create(createDepartmentDto);
   }
 
-  // Any authenticated user
-  @Get()
-  findAll(): Promise<any[]> {
-    return this.departmentsService.findAll();
-  }
-
-  // Any authenticated user
-  @Get(':id')
-  findOne(@Param('id') id: string): Promise<any> {
-    return this.departmentsService.findOne(id);
-  }
-
-  // Admin only
-  @Patch(':id')
-  @UseGuards(RolesGuard)
-  @Roles('admin')
-  update(
-    @Param('id') id: string,
-    @Body() updateDepartmentDto: dto.UpdateDepartmentDto,
-  ): Promise<any> {
-    return this.departmentsService.update(id, updateDepartmentDto);
-  }
-
-  // Admin only
-  @Delete(':id')
-  @HttpCode(HttpStatus.NO_CONTENT)
-  @UseGuards(RolesGuard)
-  @Roles('admin')
-  remove(@Param('id') id: string): Promise<void> {
-    return this.departmentsService.remove(id);
-  }
-
-  // Admin only
-  @Patch(':id/deactivate')
-  @UseGuards(RolesGuard)
-  @Roles('admin')
-  softDelete(@Param('id') id: string): Promise<any> {
-    return this.departmentsService.softDelete(id);
-  }
-}
-=======
-} from '@nestjs/common';
-import { DepartmentsService } from './departments.service';
-import * as dto from './dto';
-
-@Controller('departments')
-export class DepartmentsController {
-  constructor(private readonly departmentsService: DepartmentsService) {}
-
-  @Post()
-  @HttpCode(HttpStatus.CREATED)
-  create(@Body() createDepartmentDto: dto.CreateDepartmentDto) {
-    return this.departmentsService.create(createDepartmentDto);
-  }
-
+  @Public()
   @Get()
   findAll() {
     return this.departmentsService.findAll();
@@ -97,22 +35,24 @@ export class DepartmentsController {
   }
 
   @Patch(':id')
-  update(
-    @Param('id') id: string,
-    @Body() updateDepartmentDto: dto.UpdateDepartmentDto,
-  ) {
+  @UseGuards(RolesGuard)
+  @Roles('ADMIN', 'MANAGER')
+  update(@Param('id') id: string, @Body() updateDepartmentDto: UpdateDepartmentDto) {
     return this.departmentsService.update(id, updateDepartmentDto);
   }
 
   @Delete(':id')
+  @UseGuards(RolesGuard)
+  @Roles('ADMIN')
   @HttpCode(HttpStatus.NO_CONTENT)
   remove(@Param('id') id: string) {
     return this.departmentsService.remove(id);
   }
 
   @Patch(':id/deactivate')
+  @UseGuards(RolesGuard)
+  @Roles('ADMIN')
   softDelete(@Param('id') id: string) {
     return this.departmentsService.softDelete(id);
   }
 }
->>>>>>> f3aaae32b41bdd6aa5febb38052d41b3dfc87c03
