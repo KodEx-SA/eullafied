@@ -1,42 +1,74 @@
 import { useEffect, useState } from 'react';
-
-interface User {
-  user_id: string;
-  email: string;
-  name: string;
-  surname: string;
-  role: string;
-  department: string;
-  is_active: boolean;
-}
+import { usersService } from '../../services/users.service';
+import { rolesService } from '../../services/roles.service';
+import { departmentsService } from '../../services/departments.service';
+import type { User, Role, Department } from '../../types';
 
 const roleStyles: Record<string, string> = {
-  'Admin': 'bg-purple-100 text-purple-700',
-  'Manager': 'bg-blue-100 text-blue-700',
-  'Staff': 'bg-gray-100 text-gray-700',
+  ADMIN:   'bg-purple-100 text-purple-700',
+  MANAGER: 'bg-blue-100 text-blue-700',
+  STAFF:   'bg-gray-100 text-gray-700',
 };
 
 export const Users = () => {
-  const [users, setUsers] = useState<User[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [search, setSearch] = useState('');
-  const [showModal, setShowModal] = useState(false);
+  const [users, setUsers]             = useState<User[]>([]);
+  const [roles, setRoles]             = useState<Role[]>([]);
+  const [departments, setDepartments] = useState<Department[]>([]);
+  const [loading, setLoading]         = useState(true);
+  const [error, setError]             = useState<string | null>(null);
+  const [search, setSearch]           = useState('');
+  const [showModal, setShowModal]     = useState(false);
+  const [saving, setSaving]           = useState(false);
+  const [formError, setFormError]     = useState<string | null>(null);
 
-  useEffect(() => {
-    setTimeout(() => {
-      setUsers([
-        { user_id: '1', email: 'admin@eullafied.com', name: 'Admin', surname: 'User', role: 'Admin', department: 'IT', is_active: true },
-        { user_id: '2', email: 'john.doe@eullafied.com', name: 'John', surname: 'Doe', role: 'Staff', department: 'HR', is_active: true },
-        { user_id: '3', email: 'jane.smith@eullafied.com', name: 'Jane', surname: 'Smith', role: 'Manager', department: 'IT', is_active: true },
-        { user_id: '4', email: 'bob.j@eullafied.com', name: 'Bob', surname: 'Johnson', role: 'Staff', department: 'Finance', is_active: false },
-        { user_id: '5', email: 'alice.b@eullafied.com', name: 'Alice', surname: 'Brown', role: 'Staff', department: 'Operations', is_active: true },
-      ]);
-      setLoading(false);
-    }, 500);
-  }, []);
+  const [form, setForm] = useState({
+    firstName: '', lastName: '', email: '',
+    password: '', roleId: '', departmentId: '',
+  });
+
+  const load = () => {
+    setLoading(true);
+    Promise.all([
+      usersService.getAll(),
+      rolesService.getAll(),
+      departmentsService.getAll(),
+    ])
+      .then(([u, r, d]) => { setUsers(u); setRoles(r); setDepartments(d); })
+      .catch(() => setError('Failed to load users.'))
+      .finally(() => setLoading(false));
+  };
+
+  useEffect(() => { load(); }, []);
+
+  const handleCreate = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!form.roleId || !form.departmentId) { setFormError('Please select a role and department.'); return; }
+    setFormError(null);
+    setSaving(true);
+    try {
+      await usersService.create(form);
+      setShowModal(false);
+      setForm({ firstName: '', lastName: '', email: '', password: '', roleId: '', departmentId: '' });
+      load();
+    } catch (err: any) {
+      setFormError(err?.response?.data?.message ?? 'Failed to create user.');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleDeactivate = async (id: string) => {
+    if (!confirm('Are you sure you want to deactivate this user?')) return;
+    try {
+      await usersService.deactivate(id);
+      load();
+    } catch {
+      alert('Failed to deactivate user.');
+    }
+  };
 
   const filtered = users.filter(u =>
-    !search || `${u.name} ${u.surname} ${u.email}`.toLowerCase().includes(search.toLowerCase())
+    !search || `${u.firstName} ${u.lastName} ${u.email}`.toLowerCase().includes(search.toLowerCase())
   );
 
   if (loading) {
@@ -65,12 +97,16 @@ export const Users = () => {
         </button>
       </div>
 
+      {error && (
+        <div className="bg-red-50 border border-red-200 text-red-700 text-sm rounded-xl px-4 py-3">{error}</div>
+      )}
+
       {/* Stats */}
       <div className="grid grid-cols-3 gap-4">
         {[
-          { label: 'Total Users', value: users.length, color: 'text-blue-600', bg: 'bg-blue-50' },
-          { label: 'Active', value: users.filter(u => u.is_active).length, color: 'text-green-600', bg: 'bg-green-50' },
-          { label: 'Inactive', value: users.filter(u => !u.is_active).length, color: 'text-red-600', bg: 'bg-red-50' },
+          { label: 'Total Users', value: users.length,                             color: 'text-blue-600',  bg: 'bg-blue-50' },
+          { label: 'Active',      value: users.filter(u => u.status === 'active').length, color: 'text-green-600', bg: 'bg-green-50' },
+          { label: 'Inactive',    value: users.filter(u => u.status !== 'active').length, color: 'text-red-600',   bg: 'bg-red-50' },
         ].map(s => (
           <div key={s.label} className={`${s.bg} rounded-2xl p-5`}>
             <p className={`text-3xl font-bold ${s.color}`}>{s.value}</p>
@@ -87,59 +123,59 @@ export const Users = () => {
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
             </svg>
             <input
-              type="text"
-              placeholder="Search users..."
-              value={search}
+              type="text" placeholder="Search users..." value={search}
               onChange={(e) => setSearch(e.target.value)}
-              className="w-full pl-10 pr-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              className="w-full pl-10 pr-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
             />
           </div>
         </div>
-
         <table className="w-full">
           <thead>
             <tr className="bg-gray-50 border-b border-gray-100">
-              <th className="text-left px-6 py-4 text-xs font-semibold text-gray-500 uppercase tracking-wider">User</th>
-              <th className="text-left px-6 py-4 text-xs font-semibold text-gray-500 uppercase tracking-wider">Email</th>
-              <th className="text-left px-6 py-4 text-xs font-semibold text-gray-500 uppercase tracking-wider">Role</th>
-              <th className="text-left px-6 py-4 text-xs font-semibold text-gray-500 uppercase tracking-wider">Department</th>
-              <th className="text-left px-6 py-4 text-xs font-semibold text-gray-500 uppercase tracking-wider">Status</th>
-              <th className="text-left px-6 py-4 text-xs font-semibold text-gray-500 uppercase tracking-wider">Actions</th>
+              {['User', 'Email', 'Role', 'Department', 'Status', 'Actions'].map(h => (
+                <th key={h} className="text-left px-6 py-4 text-xs font-semibold text-gray-500 uppercase tracking-wider">{h}</th>
+              ))}
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-50">
-            {filtered.map(user => (
-              <tr key={user.user_id} className="hover:bg-gray-50 transition-colors">
+            {filtered.length === 0 ? (
+              <tr>
+                <td colSpan={6} className="px-6 py-12 text-center text-sm text-gray-400">
+                  {users.length === 0 ? 'No users found.' : 'No results for your search.'}
+                </td>
+              </tr>
+            ) : filtered.map(u => (
+              <tr key={u.id} className="hover:bg-gray-50 transition-colors">
                 <td className="px-6 py-4">
                   <div className="flex items-center gap-3">
                     <div className="w-9 h-9 bg-gradient-to-br from-blue-500 to-blue-700 rounded-full flex items-center justify-center text-white text-sm font-semibold flex-shrink-0">
-                      {user.name[0]}{user.surname[0]}
+                      {u.firstName[0]}{u.lastName[0]}
                     </div>
-                    <span className="text-sm font-medium text-gray-900">{user.name} {user.surname}</span>
+                    <span className="text-sm font-medium text-gray-900">{u.firstName} {u.lastName}</span>
                   </div>
                 </td>
-                <td className="px-6 py-4 text-sm text-gray-600">{user.email}</td>
+                <td className="px-6 py-4 text-sm text-gray-600">{u.email}</td>
                 <td className="px-6 py-4">
-                  <span className={`px-2.5 py-1 rounded-lg text-xs font-semibold ${roleStyles[user.role] ?? 'bg-gray-100 text-gray-700'}`}>
-                    {user.role}
+                  <span className={`px-2.5 py-1 rounded-lg text-xs font-semibold ${roleStyles[u.role.name] ?? 'bg-gray-100 text-gray-700'}`}>
+                    {u.role.name}
                   </span>
                 </td>
-                <td className="px-6 py-4 text-sm text-gray-600">{user.department}</td>
+                <td className="px-6 py-4 text-sm text-gray-600">{u.department?.name ?? '—'}</td>
                 <td className="px-6 py-4">
                   <div className="flex items-center gap-1.5">
-                    <span className={`w-2 h-2 rounded-full ${user.is_active ? 'bg-green-500' : 'bg-gray-300'}`} />
-                    <span className={`text-xs font-medium ${user.is_active ? 'text-green-700' : 'text-gray-500'}`}>
-                      {user.is_active ? 'Active' : 'Inactive'}
+                    <span className={`w-2 h-2 rounded-full ${u.status === 'active' ? 'bg-green-500' : 'bg-gray-300'}`} />
+                    <span className={`text-xs font-medium capitalize ${u.status === 'active' ? 'text-green-700' : 'text-gray-500'}`}>
+                      {u.status}
                     </span>
                   </div>
                 </td>
                 <td className="px-6 py-4">
-                  <div className="flex gap-2">
-                    <button className="px-3 py-1.5 text-xs font-medium text-blue-600 bg-blue-50 hover:bg-blue-100 rounded-lg transition-colors">Edit</button>
-                    <button className="px-3 py-1.5 text-xs font-medium text-red-600 bg-red-50 hover:bg-red-100 rounded-lg transition-colors">
-                      {user.is_active ? 'Deactivate' : 'Activate'}
-                    </button>
-                  </div>
+                  <button
+                    onClick={() => handleDeactivate(u.id)}
+                    className="px-3 py-1.5 text-xs font-medium text-red-600 bg-red-50 hover:bg-red-100 rounded-lg transition-colors"
+                  >
+                    Deactivate
+                  </button>
                 </td>
               </tr>
             ))}
@@ -159,49 +195,62 @@ export const Users = () => {
                 </svg>
               </button>
             </div>
-            <div className="space-y-4">
+            {formError && (
+              <div className="mb-4 bg-red-50 border border-red-200 text-red-700 text-sm rounded-xl px-4 py-3">{formError}</div>
+            )}
+            <form onSubmit={handleCreate} className="space-y-4">
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1.5">First Name</label>
-                  <input type="text" className="w-full px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                  <input required value={form.firstName} onChange={e => setForm(f => ({ ...f, firstName: e.target.value }))}
+                    className="w-full px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1.5">Last Name</label>
-                  <input type="text" className="w-full px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                  <input required value={form.lastName} onChange={e => setForm(f => ({ ...f, lastName: e.target.value }))}
+                    className="w-full px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
                 </div>
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1.5">Email</label>
-                <input type="email" className="w-full px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                <input required type="email" value={form.email} onChange={e => setForm(f => ({ ...f, email: e.target.value }))}
+                  className="w-full px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1.5">Password</label>
+                <input required type="password" minLength={8} value={form.password} onChange={e => setForm(f => ({ ...f, password: e.target.value }))}
+                  placeholder="Min. 8 characters"
+                  className="w-full px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
               </div>
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1.5">Role</label>
-                  <select className="w-full px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
-                    <option>Staff</option>
-                    <option>Manager</option>
-                    <option>Admin</option>
+                  <select required value={form.roleId} onChange={e => setForm(f => ({ ...f, roleId: e.target.value }))}
+                    className="w-full px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+                    <option value="">Select role</option>
+                    {roles.map(r => <option key={r.id} value={r.id}>{r.name}</option>)}
                   </select>
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1.5">Department</label>
-                  <select className="w-full px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
-                    <option>IT</option>
-                    <option>HR</option>
-                    <option>Finance</option>
-                    <option>Operations</option>
+                  <select required value={form.departmentId} onChange={e => setForm(f => ({ ...f, departmentId: e.target.value }))}
+                    className="w-full px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+                    <option value="">Select dept</option>
+                    {departments.map(d => <option key={d.id} value={d.id}>{d.name}</option>)}
                   </select>
                 </div>
               </div>
               <div className="flex gap-3 pt-2">
-                <button className="flex-1 py-2.5 bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold rounded-xl transition-colors">
-                  Create User
+                <button type="submit" disabled={saving}
+                  className="flex-1 py-2.5 bg-blue-600 hover:bg-blue-700 disabled:opacity-60 text-white text-sm font-semibold rounded-xl transition-colors">
+                  {saving ? 'Creating...' : 'Create User'}
                 </button>
-                <button onClick={() => setShowModal(false)} className="flex-1 py-2.5 bg-gray-100 hover:bg-gray-200 text-gray-700 text-sm font-medium rounded-xl transition-colors">
+                <button type="button" onClick={() => setShowModal(false)}
+                  className="flex-1 py-2.5 bg-gray-100 hover:bg-gray-200 text-gray-700 text-sm font-medium rounded-xl transition-colors">
                   Cancel
                 </button>
               </div>
-            </div>
+            </form>
           </div>
         </div>
       )}

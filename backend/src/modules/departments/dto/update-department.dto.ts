@@ -1,3 +1,21 @@
-import { CreateDepartmentDto } from './create-department.dto';
+import { IsString, IsOptional, IsBoolean, MaxLength } from 'class-validator';
 
-export type UpdateDepartmentDto = Partial<CreateDepartmentDto>;
+export class UpdateDepartmentDto {
+  @IsString()
+  @MaxLength(100)
+  @IsOptional()
+  name?: string;
+
+  @IsString()
+  @IsOptional()
+  description?: string;
+
+  @IsString()
+  @MaxLength(100)
+  @IsOptional()
+  headOfDepartment?: string;
+
+  @IsBoolean()
+  @IsOptional()
+  isActive?: boolean;
+}

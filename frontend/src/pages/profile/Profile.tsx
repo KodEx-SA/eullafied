@@ -137,7 +137,7 @@ export const Profile = () => {
             <h2 className="text-base font-semibold text-gray-900 mb-4">Work Information</h2>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <InputField label="Department" name="department" value={form.department} onChange={handleChange} disabled={!editing} />
-              <InputField label="Role" name="role" value={user?.role ?? ''} onChange={() => {}} disabled />
+              <InputField label="Role" name="role" value={user?.role?.name ?? ''} onChange={() => {}} disabled />
             </div>
           </div>
         </div>

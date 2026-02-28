@@ -1,5 +1,5 @@
-import { IsString, IsEnum, IsUUID } from 'class-validator';
-import { TicketPriority } from '../entities/ticket.entity';
+import { IsString, IsEnum, IsUUID, IsOptional } from 'class-validator';
+import { TicketPriority } from '../../../shared/enums';
 
 export class CreateTicketDto {
   @IsString()
@@ -13,4 +13,8 @@ export class CreateTicketDto {
 
   @IsUUID()
   departmentId: string;
+
+  @IsString()
+  @IsOptional()
+  category?: string;
 }

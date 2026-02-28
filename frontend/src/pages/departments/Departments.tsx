@@ -1,38 +1,53 @@
 import { useEffect, useState } from 'react';
-
-interface Department {
-  department_id: string;
-  department_name: string;
-  description?: string;
-  user_count: number;
-  open_tickets: number;
-  head?: string;
-}
+import { departmentsService } from '../../services/departments.service';
+import type { Department } from '../../types';
 
 const deptColors = [
-  { bg: 'bg-blue-600', light: 'bg-blue-50', text: 'text-blue-700' },
-  { bg: 'bg-purple-600', light: 'bg-purple-50', text: 'text-purple-700' },
-  { bg: 'bg-green-600', light: 'bg-green-50', text: 'text-green-700' },
-  { bg: 'bg-orange-500', light: 'bg-orange-50', text: 'text-orange-700' },
-  { bg: 'bg-pink-600', light: 'bg-pink-50', text: 'text-pink-700' },
+  { bg: 'bg-blue-600',   light: 'bg-blue-50',   text: 'text-blue-700' },
+  { bg: 'bg-purple-600', light: 'bg-purple-50',  text: 'text-purple-700' },
+  { bg: 'bg-green-600',  light: 'bg-green-50',   text: 'text-green-700' },
+  { bg: 'bg-orange-500', light: 'bg-orange-50',  text: 'text-orange-700' },
+  { bg: 'bg-pink-600',   light: 'bg-pink-50',    text: 'text-pink-700' },
 ];
 
 export const Departments = () => {
   const [departments, setDepartments] = useState<Department[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [showModal, setShowModal] = useState(false);
+  const [loading, setLoading]         = useState(true);
+  const [error, setError]             = useState<string | null>(null);
+  const [showModal, setShowModal]     = useState(false);
+  const [saving, setSaving]           = useState(false);
+  const [formError, setFormError]     = useState<string | null>(null);
+  const [form, setForm]               = useState({ name: '', description: '', headOfDepartment: '' });
 
-  useEffect(() => {
-    setTimeout(() => {
-      setDepartments([
-        { department_id: '1', department_name: 'IT', description: 'Information Technology — manages all tech infrastructure', user_count: 15, open_tickets: 8, head: 'Jane Smith' },
-        { department_id: '2', department_name: 'HR', description: 'Human Resources — recruitment, payroll and compliance', user_count: 8, open_tickets: 3, head: 'John Doe' },
-        { department_id: '3', department_name: 'Finance', description: 'Finance — budgeting, reporting and audits', user_count: 12, open_tickets: 2, head: 'Alice Brown' },
-        { department_id: '4', department_name: 'Operations', description: 'Operations — daily business process management', user_count: 20, open_tickets: 10, head: 'Bob Johnson' },
-      ]);
-      setLoading(false);
-    }, 500);
-  }, []);
+  const load = () => {
+    setLoading(true);
+    departmentsService.getAll()
+      .then(setDepartments)
+      .catch(() => setError('Failed to load departments.'))
+      .finally(() => setLoading(false));
+  };
+
+  useEffect(() => { load(); }, []);
+
+  const handleCreate = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setFormError(null);
+    setSaving(true);
+    try {
+      await departmentsService.create({
+        name: form.name,
+        description: form.description || undefined,
+        headOfDepartment: form.headOfDepartment || undefined,
+      });
+      setShowModal(false);
+      setForm({ name: '', description: '', headOfDepartment: '' });
+      load();
+    } catch (err: any) {
+      setFormError(err?.response?.data?.message ?? 'Failed to create department.');
+    } finally {
+      setSaving(false);
+    }
+  };
 
   if (loading) {
     return (
@@ -60,13 +75,16 @@ export const Departments = () => {
         </button>
       </div>
 
+      {error && (
+        <div className="bg-red-50 border border-red-200 text-red-700 text-sm rounded-xl px-4 py-3">{error}</div>
+      )}
+
       {/* Summary Stats */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
         {[
-          { label: 'Departments', value: departments.length, icon: '🏢' },
-          { label: 'Total Staff', value: departments.reduce((a, d) => a + d.user_count, 0), icon: '👥' },
-          { label: 'Open Tickets', value: departments.reduce((a, d) => a + d.open_tickets, 0), icon: '🎫' },
-          { label: 'Avg. Team Size', value: Math.round(departments.reduce((a, d) => a + d.user_count, 0) / departments.length), icon: '📊' },
+          { label: 'Departments', value: departments.length,                             icon: '🏢' },
+          { label: 'Active',      value: departments.filter(d => d.isActive).length,     icon: '✅' },
+          { label: 'Inactive',    value: departments.filter(d => !d.isActive).length,    icon: '⏸️' },
         ].map(s => (
           <div key={s.label} className="bg-white rounded-2xl shadow-sm border border-gray-100 p-5">
             <div className="text-2xl mb-2">{s.icon}</div>
@@ -77,46 +95,44 @@ export const Departments = () => {
       </div>
 
       {/* Department Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-        {departments.map((dept, i) => {
-          const color = deptColors[i % deptColors.length];
-          const initial = dept.department_name[0];
-          return (
-            <div key={dept.department_id} className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 hover:shadow-md transition-shadow">
-              <div className="flex items-start justify-between mb-4">
-                <div className="flex items-center gap-4">
-                  <div className={`w-12 h-12 ${color.bg} rounded-2xl flex items-center justify-center text-white font-bold text-lg`}>
-                    {initial}
+      {departments.length === 0 ? (
+        <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-16 text-center text-gray-400">
+          <div className="text-5xl mb-4">🏢</div>
+          <p className="font-medium">No departments yet</p>
+          <button onClick={() => setShowModal(true)} className="mt-4 text-sm text-blue-600 hover:underline">
+            Add the first department
+          </button>
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+          {departments.map((dept, i) => {
+            const color = deptColors[i % deptColors.length];
+            return (
+              <div key={dept.id} className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 hover:shadow-md transition-shadow">
+                <div className="flex items-start justify-between mb-4">
+                  <div className="flex items-center gap-4">
+                    <div className={`w-12 h-12 ${color.bg} rounded-2xl flex items-center justify-center text-white font-bold text-lg`}>
+                      {dept.name[0]}
+                    </div>
+                    <div>
+                      <h3 className="text-lg font-bold text-gray-900">{dept.name}</h3>
+                      {dept.headOfDepartment && (
+                        <p className="text-sm text-gray-500">Head: {dept.headOfDepartment}</p>
+                      )}
+                    </div>
                   </div>
-                  <div>
-                    <h3 className="text-lg font-bold text-gray-900">{dept.department_name}</h3>
-                    {dept.head && <p className="text-sm text-gray-500">Head: {dept.head}</p>}
-                  </div>
+                  <span className={`text-xs px-2.5 py-1 rounded-lg font-medium ${dept.isActive ? 'bg-green-50 text-green-700' : 'bg-gray-100 text-gray-500'}`}>
+                    {dept.isActive ? 'Active' : 'Inactive'}
+                  </span>
                 </div>
-                <div className="flex gap-2">
-                  <button className="px-3 py-1.5 text-xs font-medium text-blue-600 bg-blue-50 hover:bg-blue-100 rounded-lg transition-colors">Edit</button>
-                  <button className="px-3 py-1.5 text-xs font-medium text-gray-600 bg-gray-50 hover:bg-gray-100 rounded-lg transition-colors">View</button>
-                </div>
+                {dept.description && (
+                  <p className="text-sm text-gray-500 leading-relaxed">{dept.description}</p>
+                )}
               </div>
-
-              {dept.description && (
-                <p className="text-sm text-gray-500 mb-4 leading-relaxed">{dept.description}</p>
-              )}
-
-              <div className="flex gap-3">
-                <div className={`flex-1 ${color.light} rounded-xl p-3 text-center`}>
-                  <p className={`text-2xl font-bold ${color.text}`}>{dept.user_count}</p>
-                  <p className="text-xs text-gray-500 mt-0.5">Staff Members</p>
-                </div>
-                <div className="flex-1 bg-red-50 rounded-xl p-3 text-center">
-                  <p className="text-2xl font-bold text-red-600">{dept.open_tickets}</p>
-                  <p className="text-xs text-gray-500 mt-0.5">Open Tickets</p>
-                </div>
-              </div>
-            </div>
-          );
-        })}
-      </div>
+            );
+          })}
+        </div>
+      )}
 
       {/* Add Department Modal */}
       {showModal && (
@@ -130,28 +146,36 @@ export const Departments = () => {
                 </svg>
               </button>
             </div>
-            <div className="space-y-4">
+            {formError && (
+              <div className="mb-4 bg-red-50 border border-red-200 text-red-700 text-sm rounded-xl px-4 py-3">{formError}</div>
+            )}
+            <form onSubmit={handleCreate} className="space-y-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1.5">Department Name</label>
-                <input type="text" className="w-full px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                <label className="block text-sm font-medium text-gray-700 mb-1.5">Department Name *</label>
+                <input required value={form.name} onChange={e => setForm(f => ({ ...f, name: e.target.value }))}
+                  className="w-full px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1.5">Description</label>
-                <textarea rows={3} className="w-full px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm resize-none focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                <textarea rows={3} value={form.description} onChange={e => setForm(f => ({ ...f, description: e.target.value }))}
+                  className="w-full px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm resize-none focus:outline-none focus:ring-2 focus:ring-blue-500" />
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1.5">Department Head</label>
-                <input type="text" className="w-full px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                <input value={form.headOfDepartment} onChange={e => setForm(f => ({ ...f, headOfDepartment: e.target.value }))}
+                  className="w-full px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
               </div>
               <div className="flex gap-3 pt-2">
-                <button className="flex-1 py-2.5 bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold rounded-xl transition-colors">
-                  Create Department
+                <button type="submit" disabled={saving}
+                  className="flex-1 py-2.5 bg-blue-600 hover:bg-blue-700 disabled:opacity-60 text-white text-sm font-semibold rounded-xl transition-colors">
+                  {saving ? 'Creating...' : 'Create Department'}
                 </button>
-                <button onClick={() => setShowModal(false)} className="flex-1 py-2.5 bg-gray-100 hover:bg-gray-200 text-gray-700 text-sm font-medium rounded-xl transition-colors">
+                <button type="button" onClick={() => setShowModal(false)}
+                  className="flex-1 py-2.5 bg-gray-100 hover:bg-gray-200 text-gray-700 text-sm font-medium rounded-xl transition-colors">
                   Cancel
                 </button>
               </div>
-            </div>
+            </form>
           </div>
         </div>
       )}

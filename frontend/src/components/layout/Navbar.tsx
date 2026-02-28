@@ -10,10 +10,10 @@ const pageTitles: Record<string, string> = {
   '/dashboard': 'Dashboard',
   '/tickets': 'Tickets',
   '/tickets/new': 'Create Ticket',
-  '/users': 'User Management',
-  '/departments': 'Departments',
+  '/users': 'Team Management',
+  '/departments': 'ETS Divisions',
   '/reports': 'Reports',
-  '/checkin': 'Staff Check-In',
+  '/checkin': 'Intern Attendance',
   '/profile': 'My Profile',
   '/settings': 'Settings',
 };
@@ -161,7 +161,7 @@ export const Navbar = ({ onMenuToggle }: NavbarProps) => {
               <div className="px-4 py-3 border-b border-gray-100">
                 <p className="text-sm font-semibold text-gray-900 truncate">{user?.firstName} {user?.lastName}</p>
                 <p className="text-xs text-gray-400 truncate">{user?.email}</p>
-                <span className="inline-block mt-1 text-xs px-2 py-0.5 bg-blue-100 text-blue-700 rounded-full font-medium">{user?.role}</span>
+                <span className="inline-block mt-1 text-xs px-2 py-0.5 bg-blue-100 text-blue-700 rounded-full font-medium">{user?.role?.name}</span>
               </div>
               {[
                 { label: 'My Profile', path: '/profile', icon: '👤' },

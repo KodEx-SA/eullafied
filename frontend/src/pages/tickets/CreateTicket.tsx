@@ -1,17 +1,26 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { ticketsService } from '../../services/tickets.service';
+import { departmentsService } from '../../services/departments.service';
+import type { Department, TicketPriority } from '../../types';
 
 export const CreateTicket = () => {
   const navigate = useNavigate();
+  const [departments, setDepartments] = useState<Department[]>([]);
   const [form, setForm] = useState({
     title: '',
     description: '',
-    priority: 'Medium',
-    department: '',
+    priority: 'medium' as TicketPriority,
+    departmentId: '',
     category: '',
   });
   const [submitting, setSubmitting] = useState(false);
   const [submitted, setSubmitted] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    departmentsService.getAll().then(setDepartments).catch(() => {});
+  }, []);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
     setForm(prev => ({ ...prev, [e.target.name]: e.target.value }));
@@ -19,11 +28,23 @@ export const CreateTicket = () => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!form.departmentId) { setError('Please select a department.'); return; }
+    setError(null);
     setSubmitting(true);
-    // TODO: POST to API
-    await new Promise(r => setTimeout(r, 1000));
-    setSubmitting(false);
-    setSubmitted(true);
+    try {
+      await ticketsService.create({
+        title: form.title,
+        description: form.description,
+        priority: form.priority,
+        departmentId: form.departmentId,
+        category: form.category || undefined,
+      });
+      setSubmitted(true);
+    } catch (err: any) {
+      setError(err?.response?.data?.message ?? 'Failed to create ticket. Please try again.');
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   if (submitted) {
@@ -45,7 +66,7 @@ export const CreateTicket = () => {
               View All Tickets
             </button>
             <button
-              onClick={() => { setSubmitted(false); setForm({ title: '', description: '', priority: 'Medium', department: '', category: '' }); }}
+              onClick={() => { setSubmitted(false); setForm({ title: '', description: '', priority: 'medium', departmentId: '', category: '' }); }}
               className="px-6 py-2.5 bg-gray-100 hover:bg-gray-200 text-gray-700 text-sm font-medium rounded-xl transition-colors"
             >
               Create Another
@@ -73,19 +94,18 @@ export const CreateTicket = () => {
       </div>
 
       <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
+        {error && (
+          <div className="mb-5 bg-red-50 border border-red-200 text-red-700 text-sm rounded-xl px-4 py-3">{error}</div>
+        )}
         <form onSubmit={handleSubmit} className="space-y-5">
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1.5">
               Subject <span className="text-red-500">*</span>
             </label>
             <input
-              type="text"
-              name="title"
-              value={form.title}
-              onChange={handleChange}
-              required
+              type="text" name="title" value={form.title} onChange={handleChange} required
               placeholder="Brief description of the issue"
-              className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition"
+              className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
             />
           </div>
 
@@ -93,29 +113,27 @@ export const CreateTicket = () => {
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1.5">Priority</label>
               <select
-                name="priority"
-                value={form.priority}
-                onChange={handleChange}
-                className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                name="priority" value={form.priority} onChange={handleChange}
+                className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
               >
-                <option>Low</option>
-                <option>Medium</option>
-                <option>High</option>
+                <option value="low">Low</option>
+                <option value="medium">Medium</option>
+                <option value="high">High</option>
+                <option value="urgent">Urgent</option>
               </select>
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1.5">Department</label>
+              <label className="block text-sm font-medium text-gray-700 mb-1.5">
+                Department <span className="text-red-500">*</span>
+              </label>
               <select
-                name="department"
-                value={form.department}
-                onChange={handleChange}
-                className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                name="departmentId" value={form.departmentId} onChange={handleChange} required
+                className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
               >
                 <option value="">Select department</option>
-                <option>IT</option>
-                <option>HR</option>
-                <option>Finance</option>
-                <option>Operations</option>
+                {departments.map(d => (
+                  <option key={d.id} value={d.id}>{d.name}</option>
+                ))}
               </select>
             </div>
           </div>
@@ -123,17 +141,22 @@ export const CreateTicket = () => {
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1.5">Category</label>
             <select
-              name="category"
-              value={form.category}
-              onChange={handleChange}
-              className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              name="category" value={form.category} onChange={handleChange}
+              className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
             >
               <option value="">Select category</option>
-              <option>Hardware</option>
-              <option>Software</option>
-              <option>Network / Connectivity</option>
-              <option>Access / Permissions</option>
-              <option>Email</option>
+              <option>SA-SAMS / Valistractor Support</option>
+              <option>OS Installation / Upgrade</option>
+              <option>Virus Removal / Antivirus</option>
+              <option>Networking / Connectivity</option>
+              <option>Hardware Repair</option>
+              <option>Software Installation</option>
+              <option>CSDI Teaching Support</option>
+              <option>Website Development</option>
+              <option>Digital Marketing</option>
+              <option>University Applications</option>
+              <option>Business Registration</option>
+              <option>General IT Support</option>
               <option>Other</option>
             </select>
           </div>
@@ -143,32 +166,23 @@ export const CreateTicket = () => {
               Description <span className="text-red-500">*</span>
             </label>
             <textarea
-              name="description"
-              value={form.description}
-              onChange={handleChange}
-              required
-              rows={5}
+              name="description" value={form.description} onChange={handleChange} required rows={5}
               placeholder="Provide as much detail as possible about the issue..."
-              className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl text-sm resize-none focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition"
+              className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl text-sm resize-none focus:outline-none focus:ring-2 focus:ring-blue-500"
             />
           </div>
 
           <div className="flex gap-3 pt-2">
             <button
-              type="submit"
-              disabled={submitting}
+              type="submit" disabled={submitting}
               className="flex items-center gap-2 px-6 py-3 bg-blue-600 hover:bg-blue-700 disabled:opacity-60 text-white text-sm font-semibold rounded-xl transition-colors"
             >
               {submitting ? (
-                <>
-                  <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                  Submitting...
-                </>
+                <><div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />Submitting...</>
               ) : 'Submit Ticket'}
             </button>
             <button
-              type="button"
-              onClick={() => navigate('/tickets')}
+              type="button" onClick={() => navigate('/tickets')}
               className="px-6 py-3 bg-gray-100 hover:bg-gray-200 text-gray-700 text-sm font-medium rounded-xl transition-colors"
             >
               Cancel

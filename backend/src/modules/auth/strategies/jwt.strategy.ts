@@ -18,9 +18,7 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
     private usersService: UsersService,
   ) {
     const secret = configService.get<string>('JWT_SECRET');
-    if (!secret) {
-      throw new Error('JWT_SECRET is not defined');
-    }
+    if (!secret) throw new Error('JWT_SECRET is not defined');
 
     super({
       jwtFromRequest: ExtractJwt.fromAuthHeaderAsBearerToken(),
@@ -31,9 +29,8 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
 
   async validate(payload: JwtPayload) {
     const user = await this.usersService.findOne(payload.sub);
-    if (!user) {
-      throw new UnauthorizedException('User not found');
-    }
-    return { userId: payload.sub, email: payload.email };
+    if (!user) throw new UnauthorizedException('User not found');
+    // Attach full user so req.user.id works everywhere
+    return user;
   }
 }

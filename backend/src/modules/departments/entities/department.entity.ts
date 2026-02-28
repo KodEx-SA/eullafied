@@ -7,11 +7,8 @@ export class Department extends BaseEntity {
   name: string;
 
   @Column({ type: 'text', nullable: true })
-  description: string;
+  description?: string;
 
   @Column({ nullable: true, length: 100 })
-  headOfDepartment: string;
-
-  @Column({ default: true })
-  isActive: boolean;
+  headOfDepartment?: string;
 }

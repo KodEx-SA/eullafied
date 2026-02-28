@@ -1,82 +1,70 @@
 import { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
+import { ticketsService } from '../../services/tickets.service';
+import type { Ticket, TicketStatus, TicketPriority } from '../../types';
+import { STATUS_LABEL, PRIORITY_LABEL, ticketNumber } from '../../types';
+import { useAuth } from '../../auth/AuthContext';
 
-interface TicketDetail {
-  ticket_id: string;
-  ticket_number: string;
-  title: string;
-  description: string;
-  status: string;
-  priority: string;
-  created_at: string;
-  requester_name: string;
-  assigned_to?: string;
-  department?: string;
-}
-
-interface Comment {
-  id: string;
-  author: string;
-  message: string;
-  time: string;
-  isSystem?: boolean;
-}
-
-const statusStyles: Record<string, string> = {
-  'Open': 'bg-red-100 text-red-700 border border-red-200',
-  'In Progress': 'bg-yellow-100 text-yellow-700 border border-yellow-200',
-  'Resolved': 'bg-green-100 text-green-700 border border-green-200',
-  'Closed': 'bg-gray-100 text-gray-600 border border-gray-200',
+const statusStyles: Record<TicketStatus, string> = {
+  open:        'bg-red-100 text-red-700 border border-red-200',
+  in_progress: 'bg-yellow-100 text-yellow-700 border border-yellow-200',
+  resolved:    'bg-green-100 text-green-700 border border-green-200',
+  closed:      'bg-gray-100 text-gray-600 border border-gray-200',
+  cancelled:   'bg-gray-100 text-gray-500 border border-gray-200',
 };
 
-const priorityStyles: Record<string, string> = {
-  'High': 'bg-red-100 text-red-700',
-  'Medium': 'bg-yellow-100 text-yellow-700',
-  'Low': 'bg-blue-100 text-blue-700',
+const priorityStyles: Record<TicketPriority, string> = {
+  urgent: 'bg-red-100 text-red-700',
+  high:   'bg-orange-100 text-orange-700',
+  medium: 'bg-yellow-100 text-yellow-700',
+  low:    'bg-blue-100 text-blue-700',
 };
 
 export const TicketDetails = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const [ticket, setTicket] = useState<TicketDetail | null>(null);
+  const { user } = useAuth();
+  const [ticket, setTicket] = useState<Ticket | null>(null);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [saving, setSaving] = useState(false);
   const [comment, setComment] = useState('');
-  const [comments, setComments] = useState<Comment[]>([
-    { id: '1', author: 'IT Support', message: 'Investigating the issue now. Will update shortly.', time: '2026-02-26T11:30:00', isSystem: false },
-    { id: '2', author: 'System', message: 'Ticket assigned to IT Support Team', time: '2026-02-26T10:05:00', isSystem: true },
-  ]);
 
   useEffect(() => {
-    setTimeout(() => {
-      setTicket({
-        ticket_id: id || '1',
-        ticket_number: 'TN-001',
-        title: 'Cannot access email system',
-        description: 'User reports being unable to access the company email. The error message displayed is "Connection timeout". Issue started this morning around 9 AM. User has tried restarting the email client and the computer with no success.',
-        status: 'Open',
-        priority: 'High',
-        created_at: '2026-02-26T10:00:00',
-        requester_name: 'John Doe',
-        assigned_to: 'IT Support Team',
-        department: 'HR',
-      });
-      setLoading(false);
-    }, 500);
+    if (!id) return;
+    ticketsService.getOne(id)
+      .then(setTicket)
+      .catch(() => setError('Ticket not found.'))
+      .finally(() => setLoading(false));
   }, [id]);
 
-  const handleAddComment = () => {
-    if (!comment.trim()) return;
-    setComments(prev => [
-      {
-        id: Date.now().toString(),
-        author: 'You',
-        message: comment,
-        time: new Date().toISOString(),
-        isSystem: false,
-      },
-      ...prev,
-    ]);
-    setComment('');
+  const handleStatusChange = async (status: TicketStatus) => {
+    if (!ticket) return;
+    setSaving(true);
+    try {
+      const updated = await ticketsService.update(ticket.id, { status });
+      setTicket(updated);
+    } catch {
+      alert('Failed to update status.');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleAssignToMe = async () => {
+    if (!ticket || !user) return;
+    setSaving(true);
+    try {
+      const updated = await ticketsService.update(ticket.id, {
+        assignedToId: user.id,
+        status: 'in_progress',
+      });
+      setTicket(updated);
+    } catch {
+      alert('Failed to assign ticket.');
+    } finally {
+      setSaving(false);
+    }
   };
 
   if (loading) {
@@ -86,10 +74,11 @@ export const TicketDetails = () => {
       </div>
     );
   }
-  if (!ticket) {
+
+  if (error || !ticket) {
     return (
       <div className="flex flex-col items-center justify-center h-64 gap-3">
-        <p className="text-gray-500">Ticket not found.</p>
+        <p className="text-gray-500">{error ?? 'Ticket not found.'}</p>
         <button onClick={() => navigate('/tickets')} className="text-blue-600 hover:underline text-sm">← Back to Tickets</button>
       </div>
     );
@@ -97,7 +86,7 @@ export const TicketDetails = () => {
 
   return (
     <div className="space-y-6">
-      {/* Back button + header */}
+      {/* Back + header */}
       <div>
         <button
           onClick={() => navigate('/tickets')}
@@ -111,81 +100,97 @@ export const TicketDetails = () => {
         <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
           <div>
             <div className="flex items-center gap-3 mb-2">
-              <span className="text-sm font-semibold text-blue-600">{ticket.ticket_number}</span>
-              <span className={`px-2.5 py-1 rounded-lg text-xs font-semibold ${statusStyles[ticket.status]}`}>{ticket.status}</span>
-              <span className={`px-2.5 py-1 rounded-lg text-xs font-semibold ${priorityStyles[ticket.priority]}`}>{ticket.priority}</span>
+              <span className="text-sm font-semibold text-blue-600">{ticketNumber(ticket.id)}</span>
+              <span className={`px-2.5 py-1 rounded-lg text-xs font-semibold ${statusStyles[ticket.status]}`}>
+                {STATUS_LABEL[ticket.status]}
+              </span>
+              <span className={`px-2.5 py-1 rounded-lg text-xs font-semibold ${priorityStyles[ticket.priority]}`}>
+                {PRIORITY_LABEL[ticket.priority]}
+              </span>
             </div>
             <h1 className="text-2xl font-bold text-gray-900">{ticket.title}</h1>
           </div>
           <div className="flex gap-2 flex-shrink-0">
-            <button className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium rounded-xl transition-colors">
-              Assign to Me
+            <button
+              onClick={handleAssignToMe}
+              disabled={saving || ticket.assignedTo?.id === user?.id}
+              className="px-4 py-2 bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white text-sm font-medium rounded-xl transition-colors"
+            >
+              {ticket.assignedTo?.id === user?.id ? '✓ Assigned to Me' : 'Assign to Me'}
             </button>
-            <select className="px-4 py-2 bg-white border border-gray-200 text-gray-700 text-sm font-medium rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500">
-              <option>Change Status</option>
-              <option>Open</option>
-              <option>In Progress</option>
-              <option>Resolved</option>
-              <option>Closed</option>
+            <select
+              value={ticket.status}
+              onChange={(e) => handleStatusChange(e.target.value as TicketStatus)}
+              disabled={saving}
+              className="px-4 py-2 bg-white border border-gray-200 text-gray-700 text-sm font-medium rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50"
+            >
+              <option value="open">Open</option>
+              <option value="in_progress">In Progress</option>
+              <option value="resolved">Resolved</option>
+              <option value="closed">Closed</option>
+              <option value="cancelled">Cancelled</option>
             </select>
           </div>
         </div>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Left — description + comments */}
+        {/* Left — description + notes */}
         <div className="lg:col-span-2 space-y-5">
-          {/* Description */}
           <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
             <h2 className="text-base font-semibold text-gray-900 mb-3">Description</h2>
-            <p className="text-gray-600 text-sm leading-relaxed">{ticket.description}</p>
+            <p className="text-gray-600 text-sm leading-relaxed whitespace-pre-wrap">{ticket.description}</p>
           </div>
 
-          {/* Comments */}
-          <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
-            <h2 className="text-base font-semibold text-gray-900 mb-4">Activity ({comments.length})</h2>
+          {/* Resolution notes (visible when resolved/closed) */}
+          {(ticket.status === 'resolved' || ticket.status === 'closed') && (
+            <div className="bg-green-50 rounded-2xl border border-green-100 p-6">
+              <h2 className="text-base font-semibold text-green-900 mb-3">✅ Resolution Notes</h2>
+              {ticket.resolutionNotes ? (
+                <p className="text-green-800 text-sm leading-relaxed">{ticket.resolutionNotes}</p>
+              ) : (
+                <p className="text-green-600 text-sm italic">No resolution notes added.</p>
+              )}
+              {ticket.resolvedAt && (
+                <p className="text-xs text-green-500 mt-3">
+                  Resolved on {new Date(ticket.resolvedAt).toLocaleString()}
+                </p>
+              )}
+            </div>
+          )}
 
-            {/* Add comment */}
-            <div className="flex gap-3 mb-5">
-              <div className="w-8 h-8 bg-blue-600 rounded-full flex items-center justify-center text-white text-sm font-semibold flex-shrink-0">Y</div>
-              <div className="flex-1">
-                <textarea
-                  value={comment}
-                  onChange={(e) => setComment(e.target.value)}
-                  placeholder="Add a comment..."
-                  rows={3}
-                  className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl text-sm resize-none focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                />
-                <div className="flex justify-end mt-2">
-                  <button
-                    onClick={handleAddComment}
-                    disabled={!comment.trim()}
-                    className="px-4 py-2 bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white text-sm font-medium rounded-xl transition-colors"
-                  >
-                    Post Comment
-                  </button>
-                </div>
+          {/* Add resolution notes */}
+          {ticket.status === 'resolved' && !ticket.resolutionNotes && (
+            <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
+              <h2 className="text-base font-semibold text-gray-900 mb-3">Add Resolution Notes</h2>
+              <textarea
+                value={comment}
+                onChange={(e) => setComment(e.target.value)}
+                placeholder="Describe how the issue was resolved..."
+                rows={3}
+                className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl text-sm resize-none focus:outline-none focus:ring-2 focus:ring-blue-500"
+              />
+              <div className="flex justify-end mt-2">
+                <button
+                  onClick={async () => {
+                    if (!comment.trim()) return;
+                    setSaving(true);
+                    try {
+                      const updated = await ticketsService.update(ticket.id, { resolutionNotes: comment });
+                      setTicket(updated);
+                      setComment('');
+                    } finally {
+                      setSaving(false);
+                    }
+                  }}
+                  disabled={!comment.trim() || saving}
+                  className="px-4 py-2 bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white text-sm font-medium rounded-xl transition-colors"
+                >
+                  Save Notes
+                </button>
               </div>
             </div>
-
-            {/* Comment list */}
-            <div className="space-y-4">
-              {comments.map((c) => (
-                <div key={c.id} className={`flex gap-3 ${c.isSystem ? 'opacity-60' : ''}`}>
-                  <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-semibold flex-shrink-0 ${c.isSystem ? 'bg-gray-200 text-gray-600' : 'bg-blue-100 text-blue-700'}`}>
-                    {c.isSystem ? '⚙' : c.author[0]}
-                  </div>
-                  <div className="flex-1">
-                    <div className="flex items-center gap-2 mb-1">
-                      <span className="text-sm font-semibold text-gray-800">{c.author}</span>
-                      <span className="text-xs text-gray-400">{new Date(c.time).toLocaleString()}</span>
-                    </div>
-                    <p className={`text-sm ${c.isSystem ? 'text-gray-500 italic' : 'text-gray-700'}`}>{c.message}</p>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
+          )}
         </div>
 
         {/* Right — ticket info */}
@@ -194,10 +199,12 @@ export const TicketDetails = () => {
             <h2 className="text-base font-semibold text-gray-900 mb-4">Ticket Details</h2>
             <dl className="space-y-4">
               {[
-                { label: 'Requester', value: ticket.requester_name },
-                { label: 'Department', value: ticket.department ?? 'N/A' },
-                { label: 'Assigned To', value: ticket.assigned_to ?? 'Unassigned' },
-                { label: 'Created', value: new Date(ticket.created_at).toLocaleString() },
+                { label: 'Requester',   value: `${ticket.createdBy.firstName} ${ticket.createdBy.lastName}` },
+                { label: 'Department',  value: ticket.department.name },
+                { label: 'Assigned To', value: ticket.assignedTo ? `${ticket.assignedTo.firstName} ${ticket.assignedTo.lastName}` : 'Unassigned' },
+                { label: 'Category',    value: ticket.category ?? 'N/A' },
+                { label: 'Created',     value: new Date(ticket.createdAt).toLocaleString() },
+                { label: 'Updated',     value: new Date(ticket.updatedAt).toLocaleString() },
               ].map(({ label, value }) => (
                 <div key={label}>
                   <dt className="text-xs font-semibold text-gray-400 uppercase tracking-wider">{label}</dt>
